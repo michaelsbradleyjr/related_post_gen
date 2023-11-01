@@ -1,7 +1,37 @@
-import std/[cpuinfo, hashes, monotimes, tables, times]
+import std/[algorithm, cpuinfo, hashes, math, monotimes, tables, times]
 import pkg/[jsony, taskpools, xxhash]
 
-const N: Positive = 5
+# import nimsimd/runtimecheck
+# import nimsimd/sse3
+import nimsimd/avx2
+
+# let cpuHasSse3 = checkInstructionSets({SSE3})
+# echo ""
+# echo "cpuHasSse3: " & $cpuHasSse3
+# let cpuHasAvx2 = checkInstructionSets({AVX2})
+# echo "cpuHasAvx2: " & $cpuHasAvx2
+# echo ""
+
+# Facilities to be used
+# ---------------------
+#
+# SSE2
+# ---------------------
+# mm_cmpgt_epi8
+# mm_set1_epi8
+#
+# AVX2
+# ---------------------
+# mm256_cmpgt_epi8
+# mm256_set1_epi8
+
+const
+  N: Positive = 5
+  # VecSize = 16
+  VecSize = 32
+
+static:
+  assert VecSize.isPowerOfTwo
 
 type
   Post = object
@@ -16,7 +46,7 @@ type
     tags : ptr seq[Tag]
     related: TopN
 
-  RelCount = uint8
+  RelCount = int8
 
   RelMeta = tuple[count: RelCount, index: PostIndex]
 
@@ -33,6 +63,9 @@ type
   TopN = array[N, ptr Post]
 
 const
+  falsy = block:
+    var falsy: array[VecSize, RelCount]
+    falsy
   input = "../posts.json"
   output = "../related_posts_nim_con.json"
 
@@ -91,20 +124,41 @@ proc tally(
   counts[index] = 0 # remove self
 
 proc topN(
-    counts: var seq[RelCount],
+    counts: seq[RelCount],
     posts: ptr seq[Post],
     metas: var array[N, RelMeta],
     related: var TopN) =
-  for index, count in counts:
-    let rank = N - 1
-    if count > metas[rank].count:
-      metas[rank].count = count
-      metas[rank].index = index
-      when N >= 2:
-        for rank in countdown(N - 2, 0):
-          if count > metas[rank].count:
-            swap(metas[rank + 1], metas[rank])
-    counts[index] = 0
+  let countsLen = counts.len
+  var
+    index = 0
+    # minCount = mm_set1_epi8(RelCount(0))
+    minCount = mm256_set1_epi8(RelCount(0))
+  while index + VecSize - 1 < countsLen:
+    var cmpCounts {.align(VecSize).}: array[VecSize, RelCount]
+    for i in 0..<VecSize:
+      cmpCounts[i] = counts[index + i]
+    let
+      # cmpResult = mm_cmpgt_epi8(cast[M128i](cmpCounts), minCount)
+      cmpResult = mm256_cmpgt_epi8(cast[M256i](cmpCounts), minCount)
+      canSkip = cast[array[VecSize, RelCount]](cmpResult) == falsy
+    if canSkip:
+      inc(index, VecSize)
+      continue
+    let nextVecIndex = index + VecSize
+    while index < nextVecIndex:
+      let
+        count = counts[index]
+        rank = N - 1
+      if count > metas[rank].count:
+        metas[rank].count = count
+        metas[rank].index = index
+        when N >= 2:
+          for rank in countdown(N - 2, 0):
+            if count > metas[rank].count:
+              swap(metas[rank + 1], metas[rank])
+        # minCount = mm_set1_epi8(metas[N - 1].count)
+        minCount = mm256_set1_epi8(metas[N - 1].count)
+      inc index
   for rank in 0..<N:
     related[rank] = addr posts[metas[rank].index]
     metas[rank].count = 0
@@ -115,10 +169,10 @@ proc process(
     posts: ptr seq[Post],
     tagMap: ptr TagMap,
     postsOut: ptr seq[PostOut]) =
-  var
-    counts = newSeq[RelCount](posts[].len)
-    metas: array[N, RelMeta]
+  let countsLen = ((posts[].len + VecSize - 1) div VecSize) * VecSize
+  var metas: array[N, RelMeta]
   for index in (group.first)..(group.last):
+    var counts = newSeq[RelCount](countsLen)
     counts.tally(posts, tagMap, index)
     postsOut[index].`"_id"` = posts[index].`"_id"`
     postsOut[index].tags = addr posts[index].tags
