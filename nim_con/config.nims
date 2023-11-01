@@ -22,8 +22,8 @@ when defined(profileUse):
   --passL:"-fprofile-use"
 
 when defined(release):
-  --passC:"-flto=auto -mavx2"
-  --passL:"-flto=auto -mavx2"
+  --passC:"-flto=auto -mavx2 -msse2"
+  --passL:"-flto=auto -mavx2 -msse2"
   when not defined(profileGen):
     --passL:"-s"
 else:
