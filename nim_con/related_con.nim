@@ -2,8 +2,8 @@ import std/[algorithm, cpuinfo, hashes, math, monotimes, tables, times]
 import pkg/[jsony, taskpools, xxhash]
 
 # import nimsimd/runtimecheck
-# import nimsimd/sse3
-import nimsimd/avx2
+import nimsimd/sse3
+# import nimsimd/avx2
 
 # let cpuHasSse3 = checkInstructionSets({SSE3})
 # echo ""
@@ -27,8 +27,8 @@ import nimsimd/avx2
 
 const
   N: Positive = 5
-  # VecSize = 16
-  VecSize = 32
+  VecSize = 16
+  # VecSize = 32
 
 static:
   assert VecSize.isPowerOfTwo
@@ -131,15 +131,15 @@ proc topN(
   let countsLen = counts.len
   var
     index = 0
-    # minCount = mm_set1_epi8(RelCount(0))
-    minCount = mm256_set1_epi8(RelCount(0))
+    minCount = mm_set1_epi8(RelCount(0))
+    # minCount = mm256_set1_epi8(RelCount(0))
   while index + VecSize - 1 < countsLen:
     var cmpCounts {.align(VecSize).}: array[VecSize, RelCount]
     for i in 0..<VecSize:
       cmpCounts[i] = counts[index + i]
     let
-      # cmpResult = mm_cmpgt_epi8(cast[M128i](cmpCounts), minCount)
-      cmpResult = mm256_cmpgt_epi8(cast[M256i](cmpCounts), minCount)
+      cmpResult = mm_cmpgt_epi8(cast[M128i](cmpCounts), minCount)
+      # cmpResult = mm256_cmpgt_epi8(cast[M256i](cmpCounts), minCount)
       canSkip = cast[array[VecSize, RelCount]](cmpResult) == falsy
     if canSkip:
       inc(index, VecSize)
@@ -156,8 +156,8 @@ proc topN(
           for rank in countdown(N - 2, 0):
             if count > metas[rank].count:
               swap(metas[rank + 1], metas[rank])
-        # minCount = mm_set1_epi8(metas[N - 1].count)
-        minCount = mm256_set1_epi8(metas[N - 1].count)
+        minCount = mm_set1_epi8(metas[N - 1].count)
+        # minCount = mm256_set1_epi8(metas[N - 1].count)
       inc index
   for rank in 0..<N:
     related[rank] = addr posts[metas[rank].index]
