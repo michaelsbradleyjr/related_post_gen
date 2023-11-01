@@ -124,7 +124,7 @@ proc tally(
   counts[index] = 0 # remove self
 
 proc topN(
-    counts: seq[RelCount],
+    counts: var seq[RelCount],
     posts: ptr seq[Post],
     metas: var array[N, RelMeta],
     related: var TopN) =
@@ -142,6 +142,8 @@ proc topN(
       # cmpResult = mm256_cmpgt_epi8(cast[M256i](cmpCounts), minCount)
       canSkip = cast[array[VecSize, RelCount]](cmpResult) == falsy
     if canSkip:
+      for i in 0..<VecSize:
+        counts[index + i] = 0
       inc(index, VecSize)
       continue
     let nextVecIndex = index + VecSize
@@ -158,6 +160,7 @@ proc topN(
               swap(metas[rank + 1], metas[rank])
         minCount = mm_set1_epi8(metas[N - 1].count)
         # minCount = mm256_set1_epi8(metas[N - 1].count)
+      counts[index] = 0
       inc index
   for rank in 0..<N:
     related[rank] = addr posts[metas[rank].index]
@@ -170,9 +173,9 @@ proc process(
     tagMap: ptr TagMap,
     postsOut: ptr seq[PostOut]) =
   let countsLen = ((posts[].len + VecSize - 1) div VecSize) * VecSize
+  var counts = newSeq[RelCount](countsLen)
   var metas: array[N, RelMeta]
   for index in (group.first)..(group.last):
-    var counts = newSeq[RelCount](countsLen)
     counts.tally(posts, tagMap, index)
     postsOut[index].`"_id"` = posts[index].`"_id"`
     postsOut[index].tags = addr posts[index].tags
