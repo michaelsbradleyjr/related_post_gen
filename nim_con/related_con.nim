@@ -62,6 +62,12 @@ type
 
   TopN = array[N, ptr Post]
 
+  CountVector = object
+    counts {.align(VecSize).}: array[VecSize, RelCount]
+
+  Counts = object
+    vectors: seq[CountVector]
+
 const
   falsy = block:
     var falsy: array[VecSize, RelCount]
@@ -71,6 +77,16 @@ const
 
 func hash(x: Tag): Hash {.inline, used.} =
   cast[Hash](XXH3_64bits(x))
+
+func len(v: CountVector): int =
+  v.counts.len
+
+func size(c: Counts): int =
+  c.vectors.len * VecSize
+
+# func `{}` ... for getting a whole vector in a Counts instance
+# func `{}=` ... for setting a whole vector (all items) in a Counts instance to a scalar
+# func `[]=` ... for setting an item within a vector in a Counts instance using offset math
 
 func `[]`(t: TagMap, key: Tag): lent seq[PostIndex] =
   tables.`[]`(t.addr[], key)
