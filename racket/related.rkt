@@ -1,6 +1,7 @@
 #lang racket/base
 
-(require json)
+(require json
+         racket/unsafe/ops)
 
 (define N 5)
 
@@ -52,39 +53,39 @@
     #:exists 'replace))
 
 (define (tally tag-map post index posts-len)
-  (let ([counts (make-vector posts-len 0)])
+  (let ([counts (make-bytes posts-len)])
     (for* ([tag (in-list (post-tags post))]
            [related-index (in-list (hash-ref tag-map tag))])
-      (vector-set! counts
-                   related-index
-                   (add1 (vector-ref counts related-index))))
-    (vector-set! counts index 0) ;; remove self
+      (unsafe-bytes-set! counts
+                         related-index
+                         (add1 (unsafe-bytes-ref counts related-index))))
+    (unsafe-bytes-set! counts index 0) ;; remove self
     counts))
 
 (define (top-n counts posts posts-len)
   (let ([min-count 0]
-        [top-counts (make-vector N 0)]
-        [top-indices (make-vector N 0)])
+        [top-counts (make-bytes N)]
+        [top-indices (make-vector N)])
     (for ([index (in-range posts-len)])
-      (let ([count (vector-ref counts index)])
+      (let ([count (unsafe-bytes-ref counts index)])
         (when (> count min-count)
           (let loop ([rank N-2])
             (if (and (>= rank 0)
-                     (> count (vector-ref top-counts rank)))
+                     (> count (unsafe-bytes-ref top-counts rank)))
               (loop (sub1 rank))
               (let ([rank (add1 rank)])
                 (when (< rank N-1)
                   (for ([rank (in-inclusive-range N-2 rank -1)])
-                    (vector-set! top-counts
-                                 (add1 rank)
-                                 (vector-ref top-counts rank))
+                    (unsafe-bytes-set! top-counts
+                                       (add1 rank)
+                                       (unsafe-bytes-ref top-counts rank))
                     (vector-set! top-indices
                                  (add1 rank)
                                  (vector-ref top-indices rank))))
-                (vector-set! top-counts rank count)
+                (unsafe-bytes-set! top-counts rank count)
                 (vector-set! top-indices rank index)
                 (set! min-count
-                      (vector-ref top-counts N-1))))))))
+                      (unsafe-bytes-ref top-counts N-1))))))))
     (for/list ([index (in-vector top-indices)])
       (vector-ref posts index))))
 
