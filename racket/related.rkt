@@ -58,7 +58,7 @@
            [related-index (in-list (hash-ref tag-map tag))])
       (unsafe-bytes-set! counts
                          related-index
-                         (add1 (unsafe-bytes-ref counts related-index))))
+                         (add1 (bytes-ref counts related-index))))
     (unsafe-bytes-set! counts index 0) ;; remove self
     counts))
 
@@ -67,25 +67,25 @@
         [top-counts (make-bytes N)]
         [top-indices (make-vector N)])
     (for ([index (in-range posts-len)])
-      (let ([count (unsafe-bytes-ref counts index)])
+      (let ([count (bytes-ref counts index)])
         (when (> count min-count)
           (let loop ([rank N-2])
             (if (and (>= rank 0)
-                     (> count (unsafe-bytes-ref top-counts rank)))
+                     (> count (bytes-ref top-counts rank)))
               (loop (sub1 rank))
               (let ([rank (add1 rank)])
                 (when (< rank N-1)
                   (for ([rank (in-inclusive-range N-2 rank -1)])
                     (unsafe-bytes-set! top-counts
                                        (add1 rank)
-                                       (unsafe-bytes-ref top-counts rank))
+                                       (bytes-ref top-counts rank))
                     (vector-set! top-indices
                                  (add1 rank)
                                  (vector-ref top-indices rank))))
                 (unsafe-bytes-set! top-counts rank count)
                 (vector-set! top-indices rank index)
                 (set! min-count
-                      (unsafe-bytes-ref top-counts N-1))))))))
+                      (bytes-ref top-counts N-1))))))))
     (for/list ([index (in-vector top-indices)])
       (vector-ref posts index))))
 
