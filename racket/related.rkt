@@ -32,7 +32,7 @@
 (define (make-tag-map posts)
   (let ([tag-map (make-hasheq)])
     (for* ([index (in-range (vector-length posts))]
-           [tag (in-list (post-tags (vector-ref posts index)))])
+           [tag (in-list (post-tags (unsafe-vector-ref posts index)))])
       (hash-update! tag-map
                     tag
                     (λ (related-indices) (cons index related-indices))
@@ -58,7 +58,7 @@
            [related-index (in-list (hash-ref tag-map tag))])
       (unsafe-bytes-set! counts
                          related-index
-                         (add1 (bytes-ref counts related-index))))
+                         (add1 (unsafe-bytes-ref counts related-index))))
     (unsafe-bytes-set! counts index 0) ;; remove self
     counts))
 
@@ -67,34 +67,34 @@
         [top-counts (make-bytes N)]
         [top-indices (make-vector N)])
     (for ([index (in-range posts-len)])
-      (let ([count (bytes-ref counts index)])
+      (let ([count (unsafe-bytes-ref counts index)])
         (when (> count min-count)
           (let loop ([rank N-2])
             (if (and (>= rank 0)
-                     (> count (bytes-ref top-counts rank)))
+                     (> count (unsafe-bytes-ref top-counts rank)))
               (loop (sub1 rank))
               (let ([rank (add1 rank)])
                 (when (< rank N-1)
                   (for ([rank (in-inclusive-range N-2 rank -1)])
                     (unsafe-bytes-set! top-counts
                                        (add1 rank)
-                                       (bytes-ref top-counts rank))
-                    (vector-set! top-indices
+                                       (unsafe-bytes-ref top-counts rank))
+                    (unsafe-vector-set! top-indices
                                  (add1 rank)
-                                 (vector-ref top-indices rank))))
+                                 (unsafe-vector-ref top-indices rank))))
                 (unsafe-bytes-set! top-counts rank count)
-                (vector-set! top-indices rank index)
+                (unsafe-vector-set! top-indices rank index)
                 (set! min-count
-                      (bytes-ref top-counts N-1))))))))
+                      (unsafe-bytes-ref top-counts N-1))))))))
     (for/list ([index (in-vector top-indices)])
-      (vector-ref posts index))))
+      (unsafe-vector-ref posts index))))
 
 (define (process posts)
   (let ([posts-len (vector-length posts)]
         [tag-map (make-tag-map posts)])
     (for/vector #:length posts-len
                 ([index (in-range posts-len)])
-      (let* ([post (vector-ref posts index)]
+      (let* ([post (unsafe-vector-ref posts index)]
              [counts (tally tag-map post index posts-len)])
         (related-posts (post-_id post)
                        (post-tags post)
