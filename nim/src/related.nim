@@ -69,9 +69,7 @@ func findTopN(
         dec(pos, 2)
       inc(pos, 2)
       if pos < (N-1)*2:
-        for j in countdown((N-2)*2, pos, 2):
-          topN[j+2] = topN[j]
-          topN[j+3] = topN[j+1]
+        topN[(pos+2)..(N*2-1)] = topN[pos..(N*2-3)]
       topN[pos] = count
       topN[pos+1] = i
       minCount = topN[(N-1)*2]
