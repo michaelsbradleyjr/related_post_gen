@@ -69,7 +69,7 @@ func findTopN(
         dec(pos, 2)
       inc(pos, 2)
       if pos < (N-1)*2:
-        topN[(pos+2)..(N*2-1)] = topN[pos..(N*2-3)]
+        copyMem(addr topN[pos+2], addr topN[pos], sizeof(int)*((N*2-3)-pos+1))
       topN[pos] = count
       topN[pos+1] = i
       minCount = topN[(N-1)*2]
