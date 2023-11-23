@@ -4,6 +4,8 @@ import pkg/[decimal, jsony, xxhash]
 const N: Positive = 5
 
 type
+  Nanoseconds = int64
+
   Post = ref object
     `"_id"`: string
     title: string
@@ -18,7 +20,7 @@ const
   input = "../posts.json"
   output = "../related_posts_nim.json"
 
-proc fmt(ns: int64): string =
+proc fmtMilliseconds(ns: Nanoseconds): string =
   const mil = 1_000_000
   let msi = ns div mil
   var
@@ -108,9 +110,9 @@ proc main() =
     t0 = getMonotime()
     relatedPosts = posts.process
     t1 = getMonotime()
-    time: int64 = (t1 - t0).inNanoseconds
+    time = (t1 - t0).inNanoseconds
   output.writePosts(relatedPosts)
-  echo "Processing time (w/o IO): ", time.fmt
+  echo "Processing time (w/o IO): ", time.fmtMilliseconds
 
 when isMainModule:
   main()
