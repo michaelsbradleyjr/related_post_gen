@@ -1,9 +1,11 @@
-import std/[cpuinfo, hashes, monotimes, tables, times]
-import pkg/[jsony, taskpools, xxhash]
+import std/[cpuinfo, hashes, math, monotimes, tables, times]
+import pkg/[decimal, jsony, taskpools, xxhash]
 
 const N: Positive = 5
 
 type
+  Nanoseconds = int64
+
   Post = object
     `"_id"`: string
     title: string
@@ -35,6 +37,19 @@ type
 const
   input = "../posts.json"
   output = "../related_posts_nim_con.json"
+
+proc fmtMilliseconds(ns: Nanoseconds): string =
+  const mil = 1_000_000
+  let msi = ns div mil
+  var
+    expo = 0
+    prec = 2
+  while msi >= 10^expo:
+    inc expo
+    inc prec
+  let ms = $(newDecimal(ns) / newDecimal(mil))
+  setPrec(prec)
+  $newDecimal(ms) & "ms"
 
 func hash(x: Tag): Hash {.inline, used.} =
   cast[Hash](XXH3_64bits(x))
@@ -139,10 +154,12 @@ proc main() =
   for i in 0..<groups.size:
     pool.spawn groups[i].process(addr posts, addr tagMap, addr postsOut)
   pool.syncAll
-  let time = (getMonotime() - t0).inMicroseconds / 1000
+  let
+    t1 = getMonotime()
+    time = (t1 - t0).inNanoseconds
   pool.shutdown
   output.writePosts(postsOut)
-  echo "Processing time (w/o IO): ", time, "ms"
+  echo "Processing time (w/o IO): ", time.fmtMilliseconds
 
 when isMainModule:
   main()
